@@ -1,5 +1,6 @@
 #include <Arduino.h>
 
+// Programmer
 #define PROG_DS A0
 #define PROG_LATCH A1
 #define PROG_CLOCK A2
@@ -176,30 +177,154 @@ void progInit()
     progSetDataInput();
 }
 
-void setup()
-{
-    progInit();
-    Serial.begin(38400);
+// cli io
+static int cli_getch() {
+    return Serial.read();
+}
 
+static void cli_print(char ch) {
+    Serial.print(ch);
+}
+
+static void cli_print(const char *str) {
+    Serial.print(str);
+}
+
+// Commands
+void cmdHelp() {
+    cli_print(
+        "h - help\n"
+        "r [start_address] [count] - read memory\n"
+        "w [start_address] - write memory\n"
+        "l - enable SDP (lock)\n"
+        "u - disable SDP (unlock)\n"
+        "b - switch to binary mode\n"
+        "v - print version\n"
+        );
+}
+
+void cmdRead() {
     char buf[8];
 
     progBeginRead();
-    for (int i = 0; i < 512; i++)
+    for (int i = 0; i < 256; i++)
     {
-        if ((i & 0x0f) == 0)
-        {
-            Serial.print("\n");
+        if ((i & 0x0f) == 0x00) {
             sprintf(buf, "%04X: ", i);
             Serial.print(buf);
         }
 
         sprintf(buf, "%02X ", progReadByte(i));
         Serial.print(buf);
+
+        if ((i & 0x0f) == 0x0f)
+        {
+            Serial.print("\n");
+        }
     }
+
     progEndRead();
+}
+
+// Command line
+#define CLI_PROMPT "> "
+#define CLI_LF_PROMPT "\n> "
+
+const uint16_t command_line_max_size = 256;
+
+typedef struct {
+    uint16_t current_address;
+    char cmdline[command_line_max_size];
+    uint16_t cmdline_used;
+    bool lastIsEsc;
+} cli_context;
+
+void cli_init(cli_context *ctx) {
+    ctx->current_address = 0x0000;
+    ctx->cmdline_used = 0;
+    ctx->lastIsEsc = false;
+
+    cli_print(CLI_LF_PROMPT);
+}
+
+void cli_lauch_cmd(cli_context *ctx) {
+    if (ctx->cmdline[0] == 'r') {
+        cmdRead();
+    } else if (ctx->cmdline[0] == 'h') {
+        cmdHelp();
+    }
+}
+
+void cli_process(cli_context *ctx) {
+    auto ch = cli_getch();
+
+    if (ch == -1) return;
+
+    if (ctx->lastIsEsc) {
+        if (ch == '[') {
+            // CSI - read until 0x40-0x7E
+            do {
+                while ((ch = cli_getch()) == -1) ;
+            } while (ch < 0x40 || ch > 0x7e);
+        }
+
+        ctx->lastIsEsc = false;
+        return;
+    }
+
+    switch (ch) {
+        case '\r':
+            break; // ignore
+        case '\n':
+            if (ctx->cmdline_used > 0) {
+                ctx->cmdline[ctx->cmdline_used] = 0;
+                // Get a command line
+                cli_print("\n");
+
+                cli_lauch_cmd(ctx);
+
+                ctx->cmdline_used = 0;
+                cli_print(CLI_PROMPT);
+            } else {
+                cli_print(CLI_LF_PROMPT);
+            }
+            break;
+        case '\b':
+            if (ctx->cmdline_used > 0) {
+                ctx->cmdline_used --;
+
+                cli_print("\b \b");
+            }
+            break;
+        case 27: // ESC
+            ctx->lastIsEsc = true;
+            break;
+        default:
+            if ((ch >= 0x20) && (ch <= 0x7e) && (ctx->cmdline_used < (command_line_max_size - 1))) {
+                ctx->cmdline[ctx->cmdline_used++] = ch;
+                cli_print(ch);
+            }
+            break;
+    }
+}
+
+static cli_context ctx;
+
+void setup()
+{
+    progInit();
+    Serial.begin(38400);
+
+    /*progBeginWrite();
+    progWriteByte(0x01FF, 0xFF);
+    progEndWrite();*/
+
+    cli_init(&ctx);
 }
 
 void loop()
 {
-    // put your main code here, to run repeatedly:
+    while (Serial.available()) {
+        cli_process(&ctx);
+    }
 }
