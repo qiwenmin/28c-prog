@@ -3,7 +3,7 @@
 #define CLI_PROMPT "> "
 
 void cli_init_session(void *session);
-void cli_lauch_cmd(const char *cmdline, void *session);
+void cli_lauch_cmd(char *cmdline, void *session);
 
 void cli_init(cli_context *ctx, void *session) {
     ctx->cmdline_used = 0;

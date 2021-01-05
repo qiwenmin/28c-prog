@@ -5,6 +5,94 @@
 #include "version.h"
 
 #define CMD_OK "OK"
+#define TOK_SEP " ,\t"
+
+const uint16_t max_rom_size = 0x8000;
+
+static void printUnknownCommand() {
+    cli_print("Unknown command. Type 'h' for help.\n");
+}
+
+static void printWrongArgument() {
+    cli_print("Invalid argument(s). Type 'h' for help.\n");
+}
+
+static bool dec_to_uint16(const char *dec, uint16_t *u16) {
+    *u16 = 0;
+    for (const char *p = dec; *p != 0; p++) {
+        *u16 *= 10;
+        if (*p >= '0' && *p <= '9') {
+            *u16 += (*p - '0');
+        } else {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool oct_to_uint16(const char *oct, uint16_t *u16) {
+    *u16 = 0;
+    for (const char *p = oct; *p != 0; p++) {
+        *u16 *= 8;
+        if (*p >= '0' && *p <= '7') {
+            *u16 += (*p - '0');
+        } else {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool bin_to_uint16(const char *bin, uint16_t *u16) {
+    *u16 = 0;
+    for (const char *p = bin; *p != 0; p++) {
+        *u16 <<= 1;
+        if (*p >= '0' && *p <= '1') {
+            *u16 += (*p - '0');
+        } else {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool hex_to_uint16(const char *hex, uint16_t *u16) {
+    *u16 = 0;
+    for (const char *p = hex; *p != 0; p++) {
+        *u16 <<= 4;
+        char ch = toupper(*p);
+        if (ch >= '0' && ch <= '9') {
+            *u16 += (ch - '0');
+        } else if (ch >= 'A' && ch <= 'F') {
+            *u16 += (ch - 'A' + 10);
+        } else {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool str_to_uint16(const char *str, uint16_t *u16) {
+    if (str[0] == '0') {
+        if (toupper(str[1]) == 'X') {
+            // Hex
+            return hex_to_uint16(&str[2], u16);
+        } else if (toupper(str[1]) == 'B') {
+            // Bin
+            return bin_to_uint16(&str[2], u16);
+        } else {
+            // Oct
+            return oct_to_uint16(&str[1], u16);
+        }
+    } else {
+        // Dec
+        return dec_to_uint16(str, u16);
+    }
+}
 
 void cmdHelp() {
     cli_print(
@@ -41,19 +129,58 @@ void cmdRead(const char *cmdline, command_session *session) {
     progEndRead();
 }
 
-void cmdWrite(const char *cmdline, command_session *session) {
+void cmdWrite(char *cmdline, command_session *session) {
+    // TODO parse arguments
+
+    uint8_t data[256];
+    for (int i = 0; i < 256; i ++) {
+        data[i] = i & 0x00ff;
+    }
+    progBeginWrite();
+    progWriteBytes(0x0000, data, 256);
+    progEndWrite();
+    cli_print("Write first 256 bytes.\n");
+}
+
+void cmdWriting(char *cmdline, command_session *session) {
     // TODO parse arguments
     cli_print("Not implemented\n");
 }
 
-void cmdWriting(const char *cmdline, command_session *session) {
-    // TODO parse arguments
-    cli_print("Not implemented\n");
-}
+void cmdErase(char *cmdline, command_session *session) {
+    // cmd
+    auto p = strtok(cmdline, TOK_SEP);
+    if (p == 0 || strcasecmp(p, "e") != 0) {
+        printUnknownCommand();
+        return;
+    }
 
-void cmdErase(const char *cmdline, command_session *session) {
-    // TODO parse arguments
-    cli_print("Not implemented\n");
+    // len
+    uint16_t len = max_rom_size;
+    p = strtok(0, TOK_SEP);
+    if (p != 0) {
+        if (!str_to_uint16(p, &len)) {
+            printWrongArgument();
+            return;
+        }
+
+        len = min(len, max_rom_size);
+        p = strtok(0, TOK_SEP);
+    }
+
+    if (p != 0) {
+        printWrongArgument();
+        return;
+    }
+
+    cli_print("Erasing...\n");
+
+    progBeginWrite();
+    progErase(len);
+    progEndWrite();
+    char msg[32];
+    sprintf(msg, "Erased 0x%04X (%u) bytes.\n", len, len);
+    cli_print(msg);
 }
 
 void cmdEnableSDP() {
@@ -91,7 +218,7 @@ void cli_init_session(void *session) {
     progInit();
 }
 
-void cli_lauch_cmd(const char *cmdline, void *session) {
+void cli_lauch_cmd(char *cmdline, void *session) {
 
     auto sp = (command_session *)session;
 
@@ -125,8 +252,10 @@ void cli_lauch_cmd(const char *cmdline, void *session) {
                 case 'V':
                     cmdVersion();
                     break;
+                case 0:
+                    break;
                 default:
-                    cli_print("Unknown command. Type 'h' for help.\n");
+                    printUnknownCommand();
                     break;
             }
             break;

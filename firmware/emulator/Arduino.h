@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <stdint.h>
+#include <string.h>
+
+#define min(a,b) ((a)<(b)?(a):(b))
 
 #define A0 20
 #define A1 21
