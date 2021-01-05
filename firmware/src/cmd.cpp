@@ -140,7 +140,7 @@ static void cmdRead(command_session *session) {
     }
 
     // len
-    uint16_t len = min(256, max_rom_size - addr);
+    uint16_t len = min(0x0100 - (addr & 0x00ff), max_rom_size - addr);
     if (p != 0) {
         if (!str_to_uint16(p, &len)) {
             printWrongArgument();
@@ -165,7 +165,7 @@ static void cmdRead(command_session *session) {
             cli_print(buf);
 
             for (uint16_t j = 0; j < (i & 0x000f); j++) {
-                cli_print("   ");
+                cli_print(".. ");
             }
         }
 
