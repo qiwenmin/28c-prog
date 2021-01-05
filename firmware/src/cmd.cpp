@@ -273,6 +273,9 @@ static void cmdErase(command_session *session) {
     progBeginWrite();
     progErase(len);
     progEndWrite();
+
+    session->current_address = 0;
+
     char msg[32];
     sprintf(msg, "Erased 0x%04X (%u) bytes.\n", len, len);
     cli_print(msg);
