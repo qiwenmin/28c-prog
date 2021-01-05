@@ -36,18 +36,14 @@ void cli_process(cli_context *ctx) {
         case '\r':
             break; // ignore
         case '\n':
-            if (ctx->cmdline_used > 0) {
-                ctx->cmdline[ctx->cmdline_used] = 0;
-                // Get a command line
-                cli_print("\n");
+            ctx->cmdline[ctx->cmdline_used] = 0;
+            // Get a command line
+            cli_print("\n");
 
-                cli_lauch_cmd(ctx->cmdline, ctx->session);
+            cli_lauch_cmd(ctx->cmdline, ctx->session);
 
-                ctx->cmdline_used = 0;
-                cli_print(CLI_PROMPT);
-            } else {
-                cli_print("\n" CLI_PROMPT);
-            }
+            ctx->cmdline_used = 0;
+            cli_print(CLI_PROMPT);
             break;
         case 27: // ESC
             ctx->_lastIsEsc = true;
