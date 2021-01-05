@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-#define COMMAND_LINE_MAX_SIZE 768
+#define COMMAND_LINE_MAX_SIZE 512
 
 typedef struct {
     char cmdline[COMMAND_LINE_MAX_SIZE];
