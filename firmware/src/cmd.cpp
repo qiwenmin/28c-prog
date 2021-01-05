@@ -46,6 +46,11 @@ void cmdWrite(const char *cmdline, command_session *session) {
     cli_print("Not implemented\n");
 }
 
+void cmdWriting(const char *cmdline, command_session *session) {
+    // TODO parse arguments
+    cli_print("Not implemented\n");
+}
+
 void cmdErase(const char *cmdline, command_session *session) {
     // TODO parse arguments
     cli_print("Not implemented\n");
@@ -78,41 +83,54 @@ void cmdVersion() {
 
 void cli_init_session(void *session) {
     if (session) {
-        command_session *p = (command_session *)session;
-        p->current_address = 0;
+        auto *sp = (command_session *)session;
+        sp->current_address = 0;
+        sp->state = css_normal;
     }
 
     progInit();
 }
 
 void cli_lauch_cmd(const char *cmdline, void *session) {
-    switch (toupper(cmdline[0])) {
-        case 'H':
-            cmdHelp();
+
+    auto sp = (command_session *)session;
+
+    switch (sp->state) {
+        case css_writing:
+            cmdWriting(cmdline, sp);
             break;
-        case 'R':
-            cmdRead(cmdline, (command_session *)session);
-            break;
-        case 'W':
-            cmdWrite(cmdline, (command_session *)session);
-            break;
-        case 'E':
-            cmdErase(cmdline, (command_session *)session);
-            break;
-        case 'L':
-            cmdEnableSDP();
-            break;
-        case 'U':
-            cmdDisableSDP();
-            break;
-        case 'B':
-            cmdSwitchToBinaryMode((command_session *)session);
-            break;
-        case 'V':
-            cmdVersion();
+        case css_normal:
+            switch (toupper(cmdline[0])) {
+                case 'H':
+                    cmdHelp();
+                    break;
+                case 'R':
+                    cmdRead(cmdline, sp);
+                    break;
+                case 'W':
+                    cmdWrite(cmdline, sp);
+                    break;
+                case 'E':
+                    cmdErase(cmdline, sp);
+                    break;
+                case 'L':
+                    cmdEnableSDP();
+                    break;
+                case 'U':
+                    cmdDisableSDP();
+                    break;
+                case 'B':
+                    cmdSwitchToBinaryMode(sp);
+                    break;
+                case 'V':
+                    cmdVersion();
+                    break;
+                default:
+                    cli_print("Unknown command. Type 'h' for help.\n");
+                    break;
+            }
             break;
         default:
-            cli_print("Unknown command. Type 'h' for help.\n");
             break;
     }
 }
