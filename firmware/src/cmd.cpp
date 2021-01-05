@@ -7,6 +7,7 @@
 #define CMD_OK "OK"
 #define TOK_SEP " ,\t"
 
+#define MAX_ADDRESS "0x7FFFF"
 const uint16_t max_rom_size = 0x8000;
 
 static void printUnknownCommand() {
@@ -15,6 +16,10 @@ static void printUnknownCommand() {
 
 static void printWrongArgument() {
     cli_print("Invalid argument(s). Type 'h' for help.\n");
+}
+
+static void printWrongAddress() {
+    cli_print("Invalid address. The address should between " MAX_ADDRESS ".\n");
 }
 
 static bool dec_to_uint16(const char *dec, uint16_t *u16) {
@@ -94,10 +99,18 @@ static bool str_to_uint16(const char *str, uint16_t *u16) {
     }
 }
 
-void cmdHelp() {
+static void cmdHelp(command_session *session) {
+    auto p = strtok(0, TOK_SEP);
+
+    if (p != 0) {
+        printWrongArgument();
+        return;
+    }
+
     cli_print(
         "h - help\n"
         "r [start_address] [count] - read ROM\n"
+        "                  <enter> - read ROM\n"
         "w [start_address] - write ROM\n"
         "e [length] - erase ROM\n"
         "l - enable SDP (lock)\n"
@@ -107,29 +120,69 @@ void cmdHelp() {
         );
 }
 
-void cmdRead(const char *cmdline, command_session *session) {
-    // TODO parse arguments
+static void cmdRead(command_session *session) {
+    // address
+    uint16_t addr = session->current_address;
+    auto p = strtok(0, TOK_SEP);
+
+    if (p != 0) {
+        if (!str_to_uint16(p, &addr)) {
+            printWrongArgument();
+            return;
+        }
+
+        if (addr >= max_rom_size) {
+            printWrongAddress();
+            return;
+        }
+
+        p = strtok(0, TOK_SEP); // next arg
+    }
+
+    // len
+    uint16_t len = min(256, max_rom_size - addr);
+    if (p != 0) {
+        if (!str_to_uint16(p, &len)) {
+            printWrongArgument();
+            return;
+        }
+
+        len = min(len, max_rom_size - addr);
+        p = strtok(0, TOK_SEP);
+    }
+
+    if (p != 0) {
+        printWrongArgument();
+        return;
+    }
+
     char buf[8];
 
     progBeginRead();
-    for (int i = 0; i < 256; i++) {
-        if ((i & 0x0f) == 0x00) {
-            sprintf(buf, "%04X: ", i);
+    for (uint16_t i = addr; i < addr + len; i++) {
+        if ((i & 0x000f) == 0x0000 || i == addr) {
+            sprintf(buf, "%04X: ", i & 0xfff0);
             cli_print(buf);
+
+            for (uint16_t j = 0; j < (i & 0x000f); j++) {
+                cli_print("   ");
+            }
         }
 
         sprintf(buf, "%02X ", progReadByte(i));
         cli_print(buf);
 
-        if ((i & 0x0f) == 0x0f) {
+        if ((i & 0x000f) == 0x000f || i == (addr + len - 1)) {
             cli_print("\n");
         }
     }
 
     progEndRead();
+
+    session->current_address = addr + len;
 }
 
-void cmdWrite(char *cmdline, command_session *session) {
+static void cmdWrite(command_session *session) {
     // TODO parse arguments
 
     uint8_t data[256];
@@ -142,22 +195,15 @@ void cmdWrite(char *cmdline, command_session *session) {
     cli_print("Write first 256 bytes.\n");
 }
 
-void cmdWriting(char *cmdline, command_session *session) {
+static void cmdWriting(char *commandline, command_session *session) {
     // TODO parse arguments
     cli_print("Not implemented\n");
 }
 
-void cmdErase(char *cmdline, command_session *session) {
-    // cmd
-    auto p = strtok(cmdline, TOK_SEP);
-    if (p == 0 || strcasecmp(p, "e") != 0) {
-        printUnknownCommand();
-        return;
-    }
-
+static void cmdErase(command_session *session) {
     // len
     uint16_t len = max_rom_size;
-    p = strtok(0, TOK_SEP);
+    auto p = strtok(0, TOK_SEP);
     if (p != 0) {
         if (!str_to_uint16(p, &len)) {
             printWrongArgument();
@@ -183,7 +229,13 @@ void cmdErase(char *cmdline, command_session *session) {
     cli_print(msg);
 }
 
-void cmdEnableSDP() {
+static void cmdEnableSDP(command_session *session) {
+    auto p = strtok(0, TOK_SEP);
+    if (p != 0) {
+        printWrongArgument();
+        return;
+    }
+
     progBeginWrite();
     progEnableSDP();
     progEndWrite();
@@ -191,7 +243,13 @@ void cmdEnableSDP() {
     cli_print(CMD_OK "\n");
 }
 
-void cmdDisableSDP() {
+static void cmdDisableSDP(command_session *session) {
+    auto p = strtok(0, TOK_SEP);
+    if (p != 0) {
+        printWrongArgument();
+        return;
+    }
+
     progBeginWrite();
     progDisableSDP();
     progEndWrite();
@@ -199,13 +257,43 @@ void cmdDisableSDP() {
     cli_print(CMD_OK "\n");
 }
 
-void cmdSwitchToBinaryMode(command_session *session) {
+static void cmdSwitchToBinaryMode(command_session *session) {
     cli_print("Not implemented\n");
 }
 
-void cmdVersion() {
+static void cmdVersion(command_session *session) {
+    auto p = strtok(0, TOK_SEP);
+    if (p != 0) {
+        printWrongArgument();
+        return;
+    }
+
     cli_print(VERSION_STRING
         "\n");
+}
+
+static void dispatchCmd(char *cmdline, command_session *session) {
+    auto p = strtok(cmdline, TOK_SEP);
+
+    if (p == 0 || strcasecmp(p, "r") == 0) {
+        cmdRead(session);
+    } else if (strcasecmp(p, "w") == 0) {
+        cmdWrite(session);
+    } else if (strcasecmp(p, "e") == 0) {
+        cmdErase(session);
+    } else if (strcasecmp(p, "l") == 0) {
+        cmdEnableSDP(session);
+    } else if (strcasecmp(p, "u") == 0) {
+        cmdDisableSDP(session);
+    } else if (strcasecmp(p, "b") == 0) {
+        cmdSwitchToBinaryMode(session);
+    } else if (strcasecmp(p, "v") == 0) {
+        cmdVersion(session);
+    } else if (strcasecmp(p, "h") == 0) {
+        cmdHelp(session);
+    } else {
+        printUnknownCommand();
+    }
 }
 
 void cli_init_session(void *session) {
@@ -227,37 +315,7 @@ void cli_lauch_cmd(char *cmdline, void *session) {
             cmdWriting(cmdline, sp);
             break;
         case css_normal:
-            switch (toupper(cmdline[0])) {
-                case 'H':
-                    cmdHelp();
-                    break;
-                case 'R':
-                    cmdRead(cmdline, sp);
-                    break;
-                case 'W':
-                    cmdWrite(cmdline, sp);
-                    break;
-                case 'E':
-                    cmdErase(cmdline, sp);
-                    break;
-                case 'L':
-                    cmdEnableSDP();
-                    break;
-                case 'U':
-                    cmdDisableSDP();
-                    break;
-                case 'B':
-                    cmdSwitchToBinaryMode(sp);
-                    break;
-                case 'V':
-                    cmdVersion();
-                    break;
-                case 0:
-                    break;
-                default:
-                    printUnknownCommand();
-                    break;
-            }
+            dispatchCmd(cmdline, sp);
             break;
         default:
             break;
