@@ -19,7 +19,7 @@ static void printWrongArgument() {
 }
 
 static void printWrongAddress() {
-    cli_print("Invalid address. The address should between " MAX_ADDRESS ".\n");
+    cli_print("Invalid address. The address should between 0x0000 and " MAX_ADDRESS ".\n");
 }
 
 static bool dec_to_uint16(const char *dec, uint16_t *u16) {
@@ -183,21 +183,70 @@ static void cmdRead(command_session *session) {
 }
 
 static void cmdWrite(command_session *session) {
-    // TODO parse arguments
+    // address
+    uint16_t addr = session->current_address;
+    auto p = strtok(0, TOK_SEP);
 
-    uint8_t data[256];
-    for (int i = 0; i < 256; i ++) {
-        data[i] = i & 0x00ff;
+    if (p != 0) {
+        if (!str_to_uint16(p, &addr)) {
+            printWrongArgument();
+            return;
+        }
+
+        if (addr >= max_rom_size) {
+            printWrongAddress();
+            return;
+        }
+
+        p = strtok(0, TOK_SEP); // next arg
     }
-    progBeginWrite();
-    progWriteBytes(0x0000, data, 256);
-    progEndWrite();
-    cli_print("Write first 256 bytes.\n");
+
+    if (p != 0) {
+        printWrongArgument();
+        return;
+    }
+
+    session->current_address = addr;
+
+    char ps[8];
+    sprintf(ps, "w %04X ", addr);
+    cli_print(ps);
+
+    session->state = css_writing;
 }
 
 static void cmdWriting(char *commandline, command_session *session) {
-    // TODO parse arguments
-    cli_print("Not implemented\n");
+    if (commandline[0] == 0) {
+        session->state = css_normal;
+        return;
+    }
+
+    uint8_t buf[COMMAND_LINE_MAX_SIZE / 2];
+    uint16_t idx = 0;
+    for (auto p = strtok(commandline, TOK_SEP);
+        p != 0 && idx < COMMAND_LINE_MAX_SIZE / 2 && idx + session->current_address < max_rom_size;
+        p = strtok(0, TOK_SEP)) {
+        uint16_t data;
+        if ((!hex_to_uint16(p, &data)) || (data > 0x00ff)) {
+            cli_print("Invalid hex number sequence. Please input hex numbers (without leading '0x', between 00 and FF) in writing mode.\n");
+            idx = 0;
+            break;
+        }
+
+        buf[idx++] = data & 0x00ff;
+    }
+
+    if (idx > 0) {
+        progBeginWrite();
+        progWriteBytes(session->current_address, buf, idx);
+        progEndWrite();
+
+        session->current_address += idx;
+    }
+
+    char ps[8];
+    sprintf(ps, "w %04X ", session->current_address);
+    cli_print(ps);
 }
 
 static void cmdErase(command_session *session) {
