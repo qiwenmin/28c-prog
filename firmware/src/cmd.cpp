@@ -310,7 +310,7 @@ static void cmdErase(command_session *session) {
 
     session->current_address = 0;
 
-    cli_print("Erased ");
+    cli_print("Erased 0x");
     cli_print(uint16_to_hex4(len));
     cli_print(" (");
     cli_print(uint16_to_dec(len));
