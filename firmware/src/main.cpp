@@ -15,6 +15,10 @@ void cli_print(const char *str) {
     Serial.print(str);
 }
 
+void cli_print(const __FlashStringHelper *str) {
+    Serial.print(str);
+}
+
 static cli_context ctx;
 static command_session session;
 

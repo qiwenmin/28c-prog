@@ -11,15 +11,15 @@
 const uint16_t max_rom_size = 0x8000;
 
 static void printUnknownCommand() {
-    cli_print("Unknown command. Type 'h' for help.\n");
+    cli_print(F("Unknown command. Type 'h' for help.\n"));
 }
 
 static void printWrongArgument() {
-    cli_print("Invalid argument(s). Type 'h' for help.\n");
+    cli_print(F("Invalid argument(s). Type 'h' for help.\n"));
 }
 
 static void printWrongAddress() {
-    cli_print("Invalid address. The address should between 0x0000 and " MAX_ADDRESS ".\n");
+    cli_print(F("Invalid address. The address should between 0x0000 and " MAX_ADDRESS ".\n"));
 }
 
 static bool dec_to_uint16(const char *dec, uint16_t *u16) {
@@ -108,7 +108,7 @@ static void cmdHelp(command_session *session) {
     }
 
     cli_print(
-        "h - help\n"
+        F("h - help\n"
         "r [start_address] [count] - read ROM\n"
         "                  <enter> - read ROM\n"
         "w [start_address] - write ROM\n"
@@ -117,7 +117,7 @@ static void cmdHelp(command_session *session) {
         "u - disable SDP (unlock)\n"
         "b - switch to binary mode\n"
         "v - print version\n"
-        );
+        ));
 }
 
 static void cmdRead(command_session *session) {
@@ -228,7 +228,7 @@ static void cmdWriting(char *commandline, command_session *session) {
         p = strtok(0, TOK_SEP)) {
         uint16_t data;
         if ((!hex_to_uint16(p, &data)) || (data > 0x00ff)) {
-            cli_print("Invalid hex number sequence. Please input hex numbers (without leading '0x', between 00 and FF) in writing mode.\n");
+            cli_print(F("Invalid hex number sequence. Please input hex numbers (without leading '0x', between 00 and FF) in writing mode.\n"));
             idx = 0;
             break;
         }
@@ -268,7 +268,7 @@ static void cmdErase(command_session *session) {
         return;
     }
 
-    cli_print("Erasing...\n");
+    cli_print(F("Erasing...\n"));
 
     progBeginWrite();
     progErase(len);
@@ -310,7 +310,7 @@ static void cmdDisableSDP(command_session *session) {
 }
 
 static void cmdSwitchToBinaryMode(command_session *session) {
-    cli_print("Not implemented\n");
+    cli_print(F("Not implemented\n"));
 }
 
 static void cmdVersion(command_session *session) {
