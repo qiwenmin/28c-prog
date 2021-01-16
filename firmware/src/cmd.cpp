@@ -99,6 +99,42 @@ static bool str_to_uint16(const char *str, uint16_t *u16) {
     }
 }
 
+static char _num_str_buf[6];
+
+static char _b4_to_hexchar(uint8_t b4) {
+    return b4 < 10 ? '0' + b4 : 'A' - 10 + b4;
+}
+
+static char *uint16_to_hex4(uint16_t u16) {
+    _num_str_buf[0] = _b4_to_hexchar((u16 & 0xF000) >> 12);
+    _num_str_buf[1] = _b4_to_hexchar((u16 & 0x0F00) >> 8);
+    _num_str_buf[2] = _b4_to_hexchar((u16 & 0x00F0) >> 4);
+    _num_str_buf[3] = _b4_to_hexchar((u16 & 0x000F));
+    _num_str_buf[4] = 0;
+
+    return _num_str_buf;
+}
+
+static char *uint8_to_hex2(uint8_t u8) {
+    _num_str_buf[0] = _b4_to_hexchar((u8 & 0xF0) >> 4);
+    _num_str_buf[1] = _b4_to_hexchar((u8 & 0x0F));
+    _num_str_buf[2] = 0;
+
+    return _num_str_buf;
+}
+
+static char *uint16_to_dec(uint16_t u16) {
+    _num_str_buf[5] = 0;
+    char *p = &_num_str_buf[5];
+
+    do {
+        *(--p) = _b4_to_hexchar(u16 % 10);
+        u16 /= 10;
+    } while (u16 > 0);
+
+    return p;
+}
+
 static void cmdHelp(command_session *session) {
     auto p = strtok(0, TOK_SEP);
 
@@ -156,21 +192,19 @@ static void cmdRead(command_session *session) {
         return;
     }
 
-    char buf[8];
-
     progBeginRead();
     for (uint16_t i = addr; i < addr + len; i++) {
         if ((i & 0x000f) == 0x0000 || i == addr) {
-            sprintf(buf, "%04X: ", i & 0xfff0);
-            cli_print(buf);
+            cli_print(uint16_to_hex4(i & 0xfff0));
+            cli_print(": ");
 
             for (uint16_t j = 0; j < (i & 0x000f); j++) {
                 cli_print(".. ");
             }
         }
 
-        sprintf(buf, "%02X ", progReadByte(i));
-        cli_print(buf);
+        cli_print(uint8_to_hex2(progReadByte(i)));
+        cli_print(" ");
 
         if ((i & 0x000f) == 0x000f || i == (addr + len - 1)) {
             cli_print("\n");
@@ -208,9 +242,9 @@ static void cmdWrite(command_session *session) {
 
     session->current_address = addr;
 
-    char ps[8];
-    sprintf(ps, "w %04X ", addr);
-    cli_print(ps);
+    cli_print("w ");
+    cli_print(uint16_to_hex4(addr));
+    cli_print(" ");
 
     session->state = css_writing;
 }
@@ -244,9 +278,9 @@ static void cmdWriting(char *commandline, command_session *session) {
         session->current_address += idx;
     }
 
-    char ps[8];
-    sprintf(ps, "w %04X ", session->current_address);
-    cli_print(ps);
+    cli_print("w ");
+    cli_print(uint16_to_hex4(session->current_address));
+    cli_print(" ");
 }
 
 static void cmdErase(command_session *session) {
@@ -276,9 +310,11 @@ static void cmdErase(command_session *session) {
 
     session->current_address = 0;
 
-    char msg[32];
-    sprintf(msg, "Erased 0x%04X (%u) bytes.\n", len, len);
-    cli_print(msg);
+    cli_print("Erased ");
+    cli_print(uint16_to_hex4(len));
+    cli_print(" (");
+    cli_print(uint16_to_dec(len));
+    cli_print(") bytes.\n");
 }
 
 static void cmdEnableSDP(command_session *session) {
