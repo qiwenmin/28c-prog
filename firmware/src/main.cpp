@@ -15,9 +15,11 @@ void cli_print(const char *str) {
     Serial.print(str);
 }
 
+#ifdef ARDUINO
 void cli_print(const __FlashStringHelper *str) {
     Serial.print(str);
 }
+#endif
 
 static cli_context ctx;
 static command_session session;

@@ -1,7 +1,12 @@
 #pragma once
 
 #include <stdint.h>
+#ifdef ARDUINO
 #include <WString.h>
+#else
+#define __FlashStringHelper char
+#define F(s) s
+#endif
 
 #ifdef ARDUINO_AVR_ATmega8
 #define COMMAND_LINE_MAX_SIZE 256
@@ -22,4 +27,7 @@ void cli_process(cli_context *ctx);
 int cli_getch();
 void cli_print(char ch);
 void cli_print(const char *str);
+
+#ifdef ARDUINO
 void cli_print(const __FlashStringHelper *str);
+#endif
