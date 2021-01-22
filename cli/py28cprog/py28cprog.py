@@ -1,17 +1,25 @@
+import argh
 import serial
-import ptyprocess
+import sys
 
 EMULATE = True
 
+if EMULATE:
+    import ptyprocess
+
+CLI_VERSION = '0.0.1'
+
 SERIAL_PORT = "/dev/cu.usbmodem14101"
 BAUDRATE = 38400
+EMULATOR_PATH = '../../firmware/emulator/emulator'
 
 class ptyproc:
     def __enter__(self):
-        return ptyprocess.PtyProcess.spawn(['../../firmware/emulator/emulator'])
+        self._p = ptyprocess.PtyProcess.spawn([EMULATOR_PATH])
+        return self._p
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+        self._p.close()
 
 
 def open_serial():
@@ -41,9 +49,22 @@ def exec(ser, cmd):
     ret = buf[len(cmd_bytes):-3]
     return ret
 
+def version():
+    "Print the cli version and the firmware version."
+    firmware_version = 'Unknown'
 
-def prog():
+    try:
+        with open_serial() as ser:
+            wait_prompt(ser)
+            firmware_version = exec(ser, 'v')
+    except:
+        print(sys.exc_info()[0])
 
+    print(f"CLI Version: {CLI_VERSION}\nFirmware {firmware_version}")
+
+
+def demo():
+    "Run the demo."
     with open_serial() as ser:
 
         wait_prompt(ser)
@@ -52,5 +73,8 @@ def prog():
         print(exec(ser, ''))
 
 
+parser = argh.ArghParser()
+parser.add_commands([demo, version])
+
 if __name__ == '__main__':
-    prog()
+    parser.dispatch()
