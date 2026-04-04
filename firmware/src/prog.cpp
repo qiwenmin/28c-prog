@@ -24,6 +24,9 @@ static void progSetAddress(uint16_t address) {
     digitalWrite(PROG_LATCH, LOW);
     digitalWrite(PROG_LATCH, HIGH);
     digitalWrite(PROG_LATCH, LOW);
+
+    digitalWrite(PROG_CS, HIGH);
+    digitalWrite(PROG_CS, LOW);
 }
 
 static void progSetDataOutput() {
