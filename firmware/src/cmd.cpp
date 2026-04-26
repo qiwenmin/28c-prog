@@ -183,7 +183,7 @@ static void cmdRead(command_session *session) {
             return;
         }
 
-        len = min(len, max_rom_size - addr);
+        len = min((int)len, (int)(max_rom_size - addr));
         p = strtok(0, TOK_SEP);
     }
 
